@@ -1,0 +1,131 @@
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Windows.Forms;
+
+namespace ProductCalculator
+{
+    public partial class Form1 : Form
+    {
+        private SqlConnection conn;
+
+        public Form1()
+        {
+            InitializeComponent();
+            InitializeDatabase();
+            LoadProducts();
+        }
+
+        private void InitializeDatabase()
+        {
+            // Update the connection string with your SQL Server details
+            conn = new SqlConnection(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=C:\Users\hp\OneDrive\Documents\dbMS.mdf;Integrated Security=True;Connect Timeout=30");
+            conn.Open();
+        }
+
+        private void LoadProducts()
+        {
+            string selectQuery = "SELECT * FROM Products";
+            SqlDataAdapter da = new SqlDataAdapter(selectQuery, conn);
+            DataTable dt = new DataTable();
+            da.Fill(dt);
+            dataGridViewProducts.DataSource = dt;
+
+            CalculateTotals();
+        }
+
+        private void btnAddProduct_Click(object sender, EventArgs e)
+        {
+            string insertQuery = "INSERT INTO Products (ProductName, Quantity, BuyPrice, GST, SellingPrice) VALUES (@ProductName, @Quantity, @BuyPrice, @GST, @SellingPrice)";
+            SqlCommand insertCmd = new SqlCommand(insertQuery, conn);
+            insertCmd.Parameters.AddWithValue("@ProductName", txtProductName.Text);
+            insertCmd.Parameters.AddWithValue("@Quantity", int.Parse(txtQuantity.Text));
+            insertCmd.Parameters.AddWithValue("@BuyPrice", decimal.Parse(txtBuyPrice.Text));
+            insertCmd.Parameters.AddWithValue("@GST", decimal.Parse(txtGST.Text));
+            insertCmd.Parameters.AddWithValue("@SellingPrice", decimal.Parse(txtSellingPrice.Text));
+            insertCmd.ExecuteNonQuery();
+
+            LoadProducts();
+        }
+
+        private void btnUpdateProduct_Click(object sender, EventArgs e)
+        {
+            if (dataGridViewProducts.SelectedRows.Count == 0) return;
+
+            int selectedId = (int)dataGridViewProducts.SelectedRows[0].Cells["Id"].Value;
+
+            string updateQuery = "UPDATE Products SET Name = @Name, Quantity = @Quantity, BuyPrice = @BuyPrice, GST = @GST, SellingPrice = @SellingPrice WHERE Id = @Id";
+            SqlCommand updateCmd = new SqlCommand(updateQuery, conn);
+            updateCmd.Parameters.AddWithValue("@Name", txtProductName.Text);
+            updateCmd.Parameters.AddWithValue("@Quantity", int.Parse(txtQuantity.Text));
+            updateCmd.Parameters.AddWithValue("@BuyPrice", decimal.Parse(txtBuyPrice.Text));
+            updateCmd.Parameters.AddWithValue("@GST", decimal.Parse(txtGST.Text));
+            updateCmd.Parameters.AddWithValue("@SellingPrice", decimal.Parse(txtSellingPrice.Text));
+            updateCmd.Parameters.AddWithValue("@Id", selectedId);
+            updateCmd.ExecuteNonQuery();
+
+            LoadProducts();
+        }
+
+        private void btnDeleteProduct_Click(object sender, EventArgs e)
+        {
+            if (dataGridViewProducts.SelectedRows.Count == 0) return;
+
+            int selectedId = (int)dataGridViewProducts.SelectedRows[0].Cells["Id"].Value;
+
+            string deleteQuery = "DELETE FROM Products WHERE Id = @Id";
+            SqlCommand deleteCmd = new SqlCommand(deleteQuery, conn);
+            deleteCmd.Parameters.AddWithValue("@Id", selectedId);
+            deleteCmd.ExecuteNonQuery();
+
+            LoadProducts();
+        }
+
+        private void btnClearList_Click(object sender, EventArgs e)
+        {
+            string deleteAllQuery = "DELETE FROM Products";
+            SqlCommand deleteAllCmd = new SqlCommand(deleteAllQuery, conn);
+            deleteAllCmd.ExecuteNonQuery();
+
+            LoadProducts();
+        }
+
+        private void btnSaveList_Click(object sender, EventArgs e)
+        {
+            // All changes are already saved to the database in real-time.
+            MessageBox.Show("All changes saved to the database.");
+        }
+
+        private void CalculateTotals()
+        {
+            string selectQuery = "SELECT * FROM Products";
+            SqlDataAdapter da = new SqlDataAdapter(selectQuery, conn);
+            DataTable dt = new DataTable();
+            da.Fill(dt);
+
+            decimal totalGST = 0;
+            decimal totalProfit = 0;
+
+            foreach (DataRow row in dt.Rows)
+            {
+                int quantity = Convert.ToInt32(row["Quantity"]);
+                decimal buyPrice = Convert.ToDecimal(row["BuyPrice"]);
+                decimal gst = Convert.ToDecimal(row["GST"]);
+                decimal sellingPrice = Convert.ToDecimal(row["SellingPrice"]);
+
+                decimal totalCost = quantity * buyPrice * (1 + gst / 100);
+                decimal totalSales = quantity * sellingPrice;
+                totalProfit += totalSales - totalCost;
+                totalGST += quantity * buyPrice * (gst / 100);
+            }
+
+            lblTotalGST.Text = $"Total GST Payable: {totalGST:C}";
+            lblTotalProfit.Text = $"Total Profit: {totalProfit:C}";
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
+        }
+    }
+}
